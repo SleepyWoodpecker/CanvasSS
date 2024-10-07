@@ -5,7 +5,13 @@ LOGIN_DETAILS_PATH = "bruin_one_login_state.json"
 LOADING_TIMEOUT = 10000
 
 
-def run(playwright: Playwright):
+def run(playwright: Playwright) -> None:
+    """
+    Runs the main screenshotting script
+
+    Parameters:
+        playwright - the playwright object, preferably passed in by context
+    """
     firefox = playwright.firefox
     browser = firefox.launch(headless=False)
 
@@ -23,25 +29,39 @@ def run(playwright: Playwright):
         "https://ucla.vitalsource.com/reader/books/9781319055844/epubcfi/6/328[%3Bvnd.vst.idref%3Drog_9781319050733_answer_ch01]!/4"
     )
 
-    page.wait_for_timeout(LOADING_TIMEOUT)
+    page.wait_for_selector("button[aria-label*='ANS'][aria-label~='Chapter']")
 
-    # this produces a result, just need to check how I should be converting this result into something that I can make use of afterwards
-    iframe_body = (
-        page.frame_locator("[title='Document reading pane']")
-        .frame_locator(".favre")
-        .locator("body")
-        .element_handle()
-    )
-    iframe_body.click()
-
-    initial_next_button_classes = get_next_button_classes(page=page)
-
-    while not at_end_of_page(
-        page=page, initial_next_button_classes=initial_next_button_classes
+    for chapter_button in page.query_selector_all(
+        "button[aria-label*='ANS'][aria-label~='Chapter']"
     ):
-        # trialed and errored to take 1000 as a reasonable page size
-        page.mouse.wheel(0, 1000)
-        page.wait_for_timeout(2000)
+        # load the iframe for the chapter
+        chapter_button.click()
+        page.wait_for_timeout(LOADING_TIMEOUT)
+        chapter_name = chapter_button.query_selector("span").inner_text()
+
+        # this produces a result, just need to check how I should be converting this result into something that I can make use of afterwards
+        iframe_body = (
+            page.frame_locator("[title='Document reading pane']")
+            .frame_locator(".favre")
+            .locator("body")
+            .element_handle()
+        )
+        iframe_body.click()
+
+        initial_next_button_classes = get_next_button_classes(page=page)
+
+        chapter_image_counter = 1
+        while not at_end_of_page(
+            page=page, initial_next_button_classes=initial_next_button_classes
+        ):
+            # trialed and errored to take 1000 as a reasonable page size
+            page.mouse.wheel(0, 1000)
+            page.screenshot(
+                path=f"Answers/{chapter_name}/Answer Page {chapter_image_counter}.png",
+                full_page=True,
+            )
+            page.wait_for_timeout(1000)
+            chapter_image_counter += 1
 
 
 def login(context: BrowserContext) -> None:
@@ -87,5 +107,6 @@ def get_next_button_classes(page: Page) -> str:
 
 
 if __name__ == "__main__":
+    os.makedirs(name="Answers", exist_ok=True)
     with sync_playwright() as playwright:
         run(playwright)
