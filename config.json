@@ -1,0 +1,11 @@
+{
+  "login_details_path": "bruin_one_login_state.json",
+  "timeout": {
+    "default": 1000,
+    "login": 45000,
+    "chapter_loading": 10000
+  },
+  "output_folder_name": "Answers",
+  "login_url": "https://bc.vitalsource.com/tenants/212287/saml_auth/materials",
+  "textbook_url": "https://ucla.vitalsource.com/reader/books/9781319055844/epubcfi/6/328[%3Bvnd.vst.idref%3Drog_9781319050733_answer_ch01]!/4"
+}

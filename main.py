@@ -1,11 +1,8 @@
 from playwright.sync_api import sync_playwright, Playwright, BrowserContext, Page
-import os
-
-LOGIN_DETAILS_PATH = "bruin_one_login_state.json"
-LOADING_TIMEOUT = 10000
+import os, json
 
 
-def run(playwright: Playwright) -> None:
+def run(playwright: Playwright, config: dict[str, str | int]) -> None:
     """
     Runs the main screenshotting script
 
@@ -13,21 +10,20 @@ def run(playwright: Playwright) -> None:
         playwright - the playwright object, preferably passed in by context
     """
     firefox = playwright.firefox
-    browser = firefox.launch(headless=False)
+    browser = firefox.launch(headless=True)
 
-    if not os.path.exists(LOGIN_DETAILS_PATH):
+    if not os.path.exists(config["login_details_path"]):
         login_context = browser.new_context()
         login(context=login_context)
         login_context.close()
 
     context = browser.new_context(
-        storage_state=LOGIN_DETAILS_PATH, viewport={"height": 1300, "width": 1500}
+        storage_state=config["login_details_path"],
+        viewport={"height": 1300, "width": 1500},
     )
 
     page = context.new_page()
-    page.goto(
-        "https://ucla.vitalsource.com/reader/books/9781319055844/epubcfi/6/328[%3Bvnd.vst.idref%3Drog_9781319050733_answer_ch01]!/4"
-    )
+    page.goto(config["textbook_url"])
 
     page.wait_for_selector("button[aria-label*='ANS'][aria-label~='Chapter']")
 
@@ -36,8 +32,9 @@ def run(playwright: Playwright) -> None:
     ):
         # load the iframe for the chapter
         chapter_button.click()
-        page.wait_for_timeout(LOADING_TIMEOUT)
+        page.wait_for_timeout(config["timeout"]["chapter_loading"])
         chapter_name = chapter_button.query_selector("span").inner_text()
+        print(f"Currently at {chapter_name}...")
 
         # this produces a result, just need to check how I should be converting this result into something that I can make use of afterwards
         iframe_body = (
@@ -54,27 +51,29 @@ def run(playwright: Playwright) -> None:
         while not at_end_of_page(
             page=page, initial_next_button_classes=initial_next_button_classes
         ):
-            # trialed and errored to take 1000 as a reasonable page size
-            page.mouse.wheel(0, 1000)
+            # give page some time to load
+            page.wait_for_timeout(config["timeout"]["default"])
             page.screenshot(
-                path=f"Answers/{chapter_name}/Answer Page {chapter_image_counter}.png",
+                path=f"{config['output_folder_name']}/{chapter_name}/Answer Page {chapter_image_counter}.png",
                 full_page=True,
             )
-            page.wait_for_timeout(1000)
+
+            # trialed and errored to take 1000 as a reasonable page size
+            page.mouse.wheel(0, 1000)
             chapter_image_counter += 1
 
 
-def login(context: BrowserContext) -> None:
+def login(context: BrowserContext, config: dict[str, str | int]) -> None:
     """
     Generates and saves the log in cookies so that the user only need log in once
 
     @param context: a new browser context to perform the login on
     """
     page = context.new_page()
-    page.goto("https://bc.vitalsource.com/tenants/212287/saml_auth/materials")
+    page.goto(config["login_url"])
     # I think the only way to get the login token is to do a manual login
-    page.wait_for_timeout(45000)
-    context.storage_state(path=LOGIN_DETAILS_PATH)
+    page.wait_for_timeout(config["timeout"]["login"])
+    context.storage_state(path=config["login_details_path"])
     page.close()
 
 
@@ -107,6 +106,10 @@ def get_next_button_classes(page: Page) -> str:
 
 
 if __name__ == "__main__":
-    os.makedirs(name="Answers", exist_ok=True)
-    with sync_playwright() as playwright:
-        run(playwright)
+    with open("config.json", "r") as config_file:
+        config = json.load(config_file)
+
+        os.makedirs(name=config["output_folder_name"], exist_ok=True)
+
+        with sync_playwright() as playwright:
+            run(playwright, config=config)
