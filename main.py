@@ -43,7 +43,8 @@ def run(playwright: Playwright, config: dict[str, str | int]) -> None:
             .locator("body")
             .element_handle()
         )
-        iframe_body.click()
+        # click to enable scrolling
+        iframe_body.query_selector("h2[class*='level']").click()
 
         initial_next_button_classes = get_next_button_classes(page=page)
 
