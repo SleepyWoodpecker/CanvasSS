@@ -1,3 +1,5 @@
+.DS_Store
+
 # ignore the unique login state that should be generated
 bruin_one_login_state.json
 
