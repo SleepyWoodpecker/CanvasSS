@@ -1,3 +1,5 @@
+**This repo is meant for educational purposes only**
+
 **Instructions for use**
 
 1. Create a new environment with `python3 -m venv env`
